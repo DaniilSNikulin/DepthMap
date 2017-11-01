@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 img = cv2.imread('cube.png', 0)
-edges = cv2.Canny(img, 100, 200)
+edges = cv2.Canny(img, 100, 100)
 print(edges)
 
 plt.subplot(121), plt.imshow(img, cmap='gray')
