@@ -26,7 +26,7 @@ def get_lines(file_name):
     maxLineGap = 10
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 100, minLineLength,
                             maxLineGap)
-    return lines
+    return list(map(lambda line: line[0], lines))
 
 
 def verify_and_delete(i1, i2, d_lines):
@@ -39,5 +39,6 @@ if __name__ == "__main__":
     d_lines = {i: line for i, line in enumerate(lines)}
     combs = combinations(range(len(lines)), 2)
     for comb in combs:
-        verify_and_delete(comb[0], comb[1], d_lines)
+        # verify_and_delete(comb[0], comb[1], d_lines)
+        print(lines[comb[0]])
 
