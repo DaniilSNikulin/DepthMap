@@ -21,12 +21,24 @@ def dist_to_line(l, p):
 
 def get_lines(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 100, 200)
+    # edges = cv2.Canny(gray, 100, 200)
+
+    # ==============
+    imblue = cv2.medianBlur(gray, 5)
+    # imblue = cv2.blur(imblue, (8, 8))
+
+    edges = cv2.adaptiveThreshold(imblue, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
+                                  cv2.THRESH_BINARY, 11, 2)
+    edges = 255 - edges
+    plt.imshow(edges, cmap='gray')
+    plt.show()
+    # ================
 
     minLineLength = 100
     maxLineGap = 10
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 100, minLineLength,
                             maxLineGap)
+
     return list(map(lambda line: line[0], lines))
 
 
@@ -40,8 +52,8 @@ def verify_and_delete(i1, i2, d_lines):
         cos_a = np.dot(v1, v2) / (norm(v1) * norm(v2))
 
         if abs(cos_a) > 0.9:
-            if dist_to_line(l1, [l2[0], l2[1]]) < 100 or \
-                            dist_to_line(l1, [l2[2], l2[3]]) < 100:
+            if dist_to_line(l1, [l2[0], l2[1]]) < 10 and \
+                            dist_to_line(l1, [l2[2], l2[3]]) < 10:
                 del d_lines[i2]
 
 
@@ -60,11 +72,12 @@ def pretty_show(img, lines):
 
 if __name__ == "__main__":
     img = cv2.imread("cube.png")
+    # print(len(img[0][0]))
     lines = get_lines(img)
     d_lines = {i: line for i, line in enumerate(lines)}
     combs = combinations(range(len(lines)), 2)
     for comb in combs:
-        # verify_and_delete(comb[0], comb[1], d_lines)
+        verify_and_delete(comb[0], comb[1], d_lines)
         # print(lines[comb[0]])
         pass
     lines_orig = lines
