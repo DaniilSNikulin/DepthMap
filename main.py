@@ -2,6 +2,7 @@ from itertools import combinations
 
 import cv2
 import numpy as np
+from copy import deepcopy
 from matplotlib import pyplot as plt
 from numpy.linalg import norm
 
@@ -57,10 +58,10 @@ def get_lines(img):
 
     minLineLength = 100
     maxLineGap = 10
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 100, minLineLength,
+    lines = cv2.HoughLinesP(edges.copy(), 1, np.pi / 180, 100, minLineLength,
                             maxLineGap)
 
-    return list(map(lambda line: line[0], lines))
+    return edges, list(map(lambda line: line[0], lines))
 
 
 def verify_and_delete(i1, i2, d_lines):
@@ -139,17 +140,12 @@ def mean_point(lines):
     return [int(round(acc_x / counter)), int(round(acc_y / counter))]
 
 
-def pretty_show(img, lines):
-    img_with_lines = img.copy()
+def img_with_lines(img, lines):
+    img_lines = img.copy()
     for x1, y1, x2, y2 in lines:
-        cv2.line(img_with_lines, (x1, y1), (x2, y2), (255, 0, 0), 2)
+        cv2.line(img_lines, (x1, y1), (x2, y2), (255, 0, 0), 2)
 
-    plt.subplot(121), plt.imshow(img, cmap='gray')
-    plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-    plt.subplot(122), plt.imshow(img_with_lines, cmap='gray')
-    plt.title('Image with Lines'), plt.xticks([]), plt.yticks([])
-
-    plt.show()
+    return img_lines
 
 
 def createGradient(img, vps, st):
@@ -166,10 +162,10 @@ def createGradient(img, vps, st):
         dist1 = dist_to_line(l12, pix)
         dist2 = dist_to_line(l23, pix)
         dist3 = dist_to_line(l31, pix)
-        if norm(np_pix - np_vp3) < dist1 or norm(
-                        np_pix - np_vp2) < dist3 or norm(
-                    np_pix - np_vp1) < dist2:
-            return 0
+        #~ if norm(np_pix - np_vp3) < dist1 or norm(
+                        #~ np_pix - np_vp2) < dist3 or norm(
+                    #~ np_pix - np_vp1) < dist2:
+            #~ return 0
 
         dist = dist1 / dist_to_line(l12, st)
         dist = min(dist, dist2 / dist_to_line(l23, st))
@@ -178,36 +174,41 @@ def createGradient(img, vps, st):
         return int(max(min(round(dist * 255), 255), 0))
 
     grad = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    for i in range(250, 300):
-        for j in range(300):
-            pix = [i + 1, j + 1]
+    for i in range(len(grad)):
+        for j in range(len(grad[i])):
+            pix = [512 - i, 512 - j]
             grad[i][j] = depth_pixel(vps[0], vps[1], vps[2], st, pix)
     return grad
 
-
-def gradient_show(img, vps, mean_p):
-    from scipy.interpolate import interp2d
-
+def img_gradient(img, vps, mean_p):
     grad_img = img.copy()
     grad_img = createGradient(grad_img, vps, mean_p)
-    # xs = [vp[0] for vp in vps]
-    # ys = [vp[1] for vp in vps]
-    # zs = [0 for vp in vps]
-    # xs.append(mean_p[0])
-    # ys.append(mean_p[1])
-    # zs.append(255)
-    # f = interp2d(xs, ys, zs, kind='linear')
-    # for i in range(len(grad_img)):
-    #     for j in range(len(grad_img[0])):
-    #         grad_img[i, j] = f(i, j)
-    plt.imshow(grad_img, cmap='gray')
+
+    # plt.imshow(grad_img, cmap='gray')
+    # plt.show()
+    return grad_img
+
+
+def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad):
+    plt.subplot(231), plt.imshow(img, cmap='gray')
+    plt.title('Original Image'), plt.xticks([]), plt.yticks([])
+    plt.subplot(232), plt.imshow(img_edged, cmap='gray')
+    plt.title('Edged'), plt.xticks([]), plt.yticks([])
+    plt.subplot(233), plt.imshow(img_durty_lines, cmap='gray')
+    plt.title('Durty lines'), plt.xticks([]), plt.yticks([])
+    plt.subplot(234), plt.imshow(img_lines, cmap='gray')
+    plt.title('Clear lines'), plt.xticks([]), plt.yticks([])
+    plt.subplot(235), plt.imshow(img_grad, cmap='gray')
+    plt.title('Gradient'), plt.xticks([]), plt.yticks([])
+
     plt.show()
 
 
 if __name__ == "__main__":
     img = cv2.imread("cube.png")
     # print(len(img[0][0]))
-    lines = get_lines(img)
+    img_edges, lines = get_lines(img)
+    lines_orig = deepcopy(lines)
     d_lines = {i: line for i, line in enumerate(lines)}
     combs = combinations(range(len(lines)), 2)
     for comb in combs:
@@ -223,6 +224,11 @@ if __name__ == "__main__":
 
     vps = vanish_points(lines)
     mean_p = mean_point(lines)
-    gradient_show(img, vps, mean_p)
+
+    img_grad = img_gradient(img, vps, mean_p)
+
+    # img_grad = img
+    pretty_show(img, img_edges, img_with_lines(img, lines_orig),
+                img_with_lines(img, lines), img_grad)
 
     print("clear vps", vps)
