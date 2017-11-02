@@ -7,6 +7,38 @@ from matplotlib import pyplot as plt
 from numpy.linalg import norm
 
 
+def union_x(l1, l2):
+    if l1[2] < l1[0]:
+        return union_x([l1[2], l1[3], l1[0], l1[1]], l2)
+    if l2[2] < l2[0]:
+        return union_x(l1, [l2[2], l2[3], l2[0], l2[1]])
+    if l2[0] < l1[0]:
+        return union_x(l2, l1)
+    if l1[2] < l2[2]:
+        return [l1[0], l1[1], l2[2], l2[3]]
+    return l1
+
+def union_y(l1, l2):
+    if l1[3] < l1[1]:
+        return union_y([l1[2], l1[3], l1[0], l1[1]], l2)
+    if l2[3] < l2[1]:
+        return union_y(l1, [l2[2], l2[3], l2[0], l2[1]])
+    if l2[1] < l1[1]:
+        return union_y(l2, l1)
+    if l1[3] < l2[3]:
+        return [l1[0], l1[1], l2[2], l2[3]]
+    return l1
+
+def union(l1, l2):
+    lx = union_x(l1, l2)
+    ly = union_y(l1, l2)
+    vx = np.array([lx[2] - lx[0], lx[3] - lx[1]])
+    vy = np.array([ly[2] - ly[0], ly[3] - ly[1]])
+    if norm(vx) < norm(vy):
+        return ly
+    return lx
+
+
 def cut_cube(img):
     edged = img_edged(img.copy())
     img_gray, contours, _ = cv2.findContours(edged.copy(), cv2.RETR_TREE,
@@ -117,6 +149,7 @@ def verify_and_delete(i1, i2, d_lines):
         if abs(cos_a) > 0.9:
             if dist_to_line(l1, [l2[0], l2[1]]) < 10 and \
                             dist_to_line(l1, [l2[2], l2[3]]) < 10:
+                d_lines[i1] = union(l1, l2)
                 del d_lines[i2]
 
 
@@ -139,7 +172,7 @@ def vanish_points(lines):
     vp_left = []
     vp_right = []
     for point in d_interseptions.keys():
-        print("point intersept", point)
+        #~ print("point intersept", point)
         x, y = point
         if x < min_x:
             vp_left = point
@@ -246,7 +279,7 @@ def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad):
 
 
 if __name__ == "__main__":
-    origin_img = cv2.imread("cube.png")
+    origin_img = cv2.imread("cu.jpg")
     img = cut_cube(origin_img)
     lines = get_lines(img)
     lines_orig = deepcopy(lines)
@@ -256,13 +289,14 @@ if __name__ == "__main__":
         verify_and_delete(comb[0], comb[1], d_lines)
 
     lines = [val for val in d_lines.values()]
+    print(len(d_lines))
 
     # ================================
 
     vps = vanish_points(lines)
     mean_p = mean_point(lines)
 
-    img_grad = img_gradient(img, vps, mean_p)
+    img_grad = img #img_gradient(img, vps, mean_p)
 
     cntr = cube_contour(img)
     cntred_img = cut_contour(img_grad.copy(), cntr)
@@ -270,5 +304,5 @@ if __name__ == "__main__":
     pretty_show(origin_img, img_edged(img), img_with_lines(img, lines_orig),
                 img_with_lines(img, lines), cntred_img)
 
-    print("clear vps", vps)
+    #~ print("clear vps", vps)
     print("mean_p", mean_p)
