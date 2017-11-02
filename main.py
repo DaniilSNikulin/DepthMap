@@ -5,6 +5,48 @@ import numpy as np
 from copy import deepcopy
 from matplotlib import pyplot as plt
 from numpy.linalg import norm
+import scipy
+from scipy import ndimage
+
+
+def cut_cube(img):
+    edged = img_edged(img.copy())
+    img_gray, contours, _ = cv2.findContours(edged.copy(), cv2.RETR_TREE,
+                                             cv2.CHAIN_APPROX_SIMPLE)
+    img_contours = img.copy()
+    # print("conts", len(contours))
+    c = max(contours, key=cv2.contourArea)
+    hull = cv2.convexHull(c)
+    # print("hull",hull)
+    x, y, w, h = cv2.boundingRect(hull)
+    # cnt_rect = np.array([[x, y], [x + w, y + h]])
+    # cv2.rectangle(img_contours, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+    # mask = np.ones(img_contours.shape[:2], dtype="uint8") * 255
+
+    # Draw the contours on the mask
+    # cv2.drawContours(mask, [cnt_rect], -1, 0, -1)
+    # mask = 255 - mask
+
+    # remove the contours from the image and show the resulting images
+    # img_contours = cv2.bitwise_and(img_contours, img_contours, mask=mask)
+    return img_contours[y-10:(y + h+10), x-10:(x + w+10)]
+
+
+def img_edged(img):
+    gray = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2GRAY)
+
+    # edges = cv2.Canny(gray, 100, 200)
+
+    # ==============
+    imblue = cv2.medianBlur(gray, 9)
+    # imblue = cv2.blur(imblue, (8, 8))
+
+    edges = cv2.adaptiveThreshold(imblue, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
+                                  cv2.THRESH_BINARY, 11, 2)
+    edges = 255 - edges
+    # print(len(edges), len(edges[0]))
+    return edges
 
 
 def dist_to_line(l, p):
@@ -41,27 +83,18 @@ def intersection(l1, l2):
 
 
 def get_lines(img):
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # edges = cv2.Canny(gray, 100, 200)
-
-    # ==============
-    imblue = cv2.medianBlur(gray, 9)
-    # imblue = cv2.blur(imblue, (8, 8))
-
-    edges = cv2.adaptiveThreshold(imblue, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
-                                  cv2.THRESH_BINARY, 11, 2)
-    edges = 255 - edges
-    print(len(edges), len(edges[0]))
     # plt.imshow(edges, cmap='gray')
     # plt.show()
     # ================
+    edged = img_edged(img)
 
     minLineLength = 100
     maxLineGap = 10
-    lines = cv2.HoughLinesP(edges.copy(), 1, np.pi / 180, 100, minLineLength,
+    lines = cv2.HoughLinesP(edged.copy(), 1, np.pi / 180, 100,
+                            minLineLength,
                             maxLineGap)
 
-    return edges, list(map(lambda line: line[0], lines))
+    return list(map(lambda line: line[0], lines))
 
 
 def verify_and_delete(i1, i2, d_lines):
@@ -88,7 +121,8 @@ def vanish_points(lines):
         l2 = lines[comb[1]]
 
         p_intersept = intersection(l1, l2)
-        d_interseptions[p_intersept] = (l1, l2)
+        if p_intersept:
+            d_interseptions[p_intersept] = (l1, l2)
 
     max_x, max_y = -float("inf"), -float("inf")
     min_x, min_y = float("inf"), float("inf")
@@ -97,7 +131,7 @@ def vanish_points(lines):
     vp_left = []
     vp_right = []
     for point in d_interseptions.keys():
-        # print("point intersept", point)
+        print("point intersept", point)
         x, y = point
         if x < min_x:
             vp_left = point
@@ -111,7 +145,7 @@ def vanish_points(lines):
         if y > max_y:
             vp_top = point
             max_y = y
-    # print("vps", vp_bottom, vp_left, vp_top, vp_right)
+    # print("durty vps", vp_bottom, vp_left, vp_top, vp_right)
 
     vps = [vp_bottom, vp_left, vp_top, vp_right]
     combs = combinations(range(4), 2)
@@ -162,10 +196,10 @@ def createGradient(img, vps, st):
         dist1 = dist_to_line(l12, pix)
         dist2 = dist_to_line(l23, pix)
         dist3 = dist_to_line(l31, pix)
-        #~ if norm(np_pix - np_vp3) < dist1 or norm(
-                        #~ np_pix - np_vp2) < dist3 or norm(
-                    #~ np_pix - np_vp1) < dist2:
-            #~ return 0
+        # ~ if norm(np_pix - np_vp3) < dist1 or norm(
+        # ~ np_pix - np_vp2) < dist3 or norm(
+        # ~ np_pix - np_vp1) < dist2:
+        # ~ return 0
 
         dist = dist1 / dist_to_line(l12, st)
         dist = min(dist, dist2 / dist_to_line(l23, st))
@@ -179,6 +213,7 @@ def createGradient(img, vps, st):
             pix = [512 - i, 512 - j]
             grad[i][j] = depth_pixel(vps[0], vps[1], vps[2], st, pix)
     return grad
+
 
 def img_gradient(img, vps, mean_p):
     grad_img = img.copy()
@@ -205,9 +240,9 @@ def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad):
 
 
 if __name__ == "__main__":
-    img = cv2.imread("cube.png")
-    # print(len(img[0][0]))
-    img_edges, lines = get_lines(img)
+    origin_img = cv2.imread("cu.jpg")
+    img = cut_cube(origin_img)
+    lines = get_lines(img)
     lines_orig = deepcopy(lines)
     d_lines = {i: line for i, line in enumerate(lines)}
     combs = combinations(range(len(lines)), 2)
@@ -226,9 +261,9 @@ if __name__ == "__main__":
     mean_p = mean_point(lines)
 
     img_grad = img_gradient(img, vps, mean_p)
-
-    # img_grad = img
-    pretty_show(img, img_edges, img_with_lines(img, lines_orig),
+    img_grad = scipy.ndimage.rotate(img_grad, 90)
+    pretty_show(origin_img, img_edged(img), img_with_lines(img, lines_orig),
                 img_with_lines(img, lines), img_grad)
 
     print("clear vps", vps)
+    print("mean_p", mean_p)
