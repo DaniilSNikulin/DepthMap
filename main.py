@@ -1,3 +1,4 @@
+import math
 from copy import deepcopy
 from itertools import combinations
 
@@ -6,15 +7,64 @@ import numpy as np
 from matplotlib import pyplot as plt
 from numpy.linalg import norm
 
+close_points_dist = 30
 
-def cut_cube(img):
+
+def dist(p1, p2):
+    return math.sqrt(
+        (p1[0] - p2[0]) * (p1[0] - p2[0]) + (p1[1] - p2[1]) * (p1[1] - p2[1]))
+
+
+def contours_are_close(cnt1, cnt2):
+    for p1 in cnt1:
+        for p2 in cnt2:
+            # print(p1, p2)
+            if dist(p1[0], p2[0]) < close_points_dist:
+                return True
+
+    return False
+
+
+def max_counter(img):
     edged = img_edged(img.copy())
-    img_gray, contours, _ = cv2.findContours(edged.copy(), cv2.RETR_TREE,
+
+    img_gray, contours, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST,
                                              cv2.CHAIN_APPROX_SIMPLE)
-    img_contours = img.copy()
+
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    contours = contours[:10]
+    for i, cnt in enumerate(contours):
+        epsilon = 0.01 * cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, epsilon, True)
+        contours[i] = approx
+
+    combs = combinations(range(len(contours)), 2)
+    contours_new = []
+    for comb in combs:
+        cnt1 = contours[comb[0]]
+        cnt2 = contours[comb[1]]
+        if contours_are_close(cnt1, cnt2):
+            contours_new.append(np.concatenate((cnt1, cnt2)))
+        else:
+            contours_new.append(cnt1)
+            contours_new.append(cnt2)
+
+    # print(len(contours), len(contours_new))
+    contours = contours_new
+    # print(len(contours))
+
     c = max(contours, key=cv2.contourArea)
     hull = cv2.convexHull(c)
-    x, y, w, h = cv2.boundingRect(hull)
+    return hull
+
+def cut_cube(img):
+    m_counter = max_counter(img)
+    x, y, w, h = cv2.boundingRect(m_counter)
+
+    # cv2.drawContours(img, contours, -1, (0, 255, 0), 3)
+    # plt.imshow(img)
+    # plt.show()
+    img_contours = img.copy()
 
     return img_contours[y - 10:(y + h + 10), x - 10:(x + w + 10)]
 
@@ -139,7 +189,7 @@ def vanish_points(lines):
     vp_left = []
     vp_right = []
     for point in d_interseptions.keys():
-        print("point intersept", point)
+        # print("point intersept", point)
         x, y = point
         if x < min_x:
             vp_left = point
@@ -219,7 +269,8 @@ def createGradient(img, vps, st):
     dist_2st = dist_to_line(l23, st)
     dist_3st = dist_to_line(l31, st)
 
-    grad = [[depth_pixel([j+1, i+1]) for j in range(len(img[0]))] for i in range(len(img))]
+    grad = [[depth_pixel([j + 1, i + 1]) for j in range(len(img[0]))] for i in
+            range(len(img))]
     grad = np.array(grad)
     return grad
 
@@ -246,7 +297,7 @@ def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad):
 
 
 if __name__ == "__main__":
-    origin_img = cv2.imread("cube.png")
+    origin_img = cv2.imread("c.jpg")
     img = cut_cube(origin_img)
     lines = get_lines(img)
     lines_orig = deepcopy(lines)
@@ -265,8 +316,9 @@ if __name__ == "__main__":
     img_grad = img_gradient(img, vps, mean_p)
 
     cntr = cube_contour(img)
+    cntr = max_counter(img)
     cntred_img = cut_contour(img_grad.copy(), cntr)
-
+    # cntred_img = img
     pretty_show(origin_img, img_edged(img), img_with_lines(img, lines_orig),
                 img_with_lines(img, lines), cntred_img)
 
