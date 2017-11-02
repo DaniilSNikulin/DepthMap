@@ -1,12 +1,10 @@
+from copy import deepcopy
 from itertools import combinations
 
 import cv2
 import numpy as np
-from copy import deepcopy
 from matplotlib import pyplot as plt
 from numpy.linalg import norm
-import scipy
-from scipy import ndimage
 
 
 def cut_cube(img):
@@ -14,23 +12,34 @@ def cut_cube(img):
     img_gray, contours, _ = cv2.findContours(edged.copy(), cv2.RETR_TREE,
                                              cv2.CHAIN_APPROX_SIMPLE)
     img_contours = img.copy()
-    # print("conts", len(contours))
     c = max(contours, key=cv2.contourArea)
     hull = cv2.convexHull(c)
-    # print("hull",hull)
     x, y, w, h = cv2.boundingRect(hull)
-    # cnt_rect = np.array([[x, y], [x + w, y + h]])
-    # cv2.rectangle(img_contours, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-    # mask = np.ones(img_contours.shape[:2], dtype="uint8") * 255
+    return img_contours[y - 10:(y + h + 10), x - 10:(x + w + 10)]
+
+
+def cut_contour(img, counter):
+    cnted_image = img.copy()
+
+    mask = np.ones(cnted_image.shape[:2], dtype="uint8") * 255
 
     # Draw the contours on the mask
-    # cv2.drawContours(mask, [cnt_rect], -1, 0, -1)
-    # mask = 255 - mask
+    cv2.drawContours(mask, [counter], -1, 0, -1)
+    mask = 255 - mask
 
     # remove the contours from the image and show the resulting images
-    # img_contours = cv2.bitwise_and(img_contours, img_contours, mask=mask)
-    return img_contours[y-10:(y + h+10), x-10:(x + w+10)]
+    cnted_image = cv2.bitwise_and(cnted_image, cnted_image, mask=mask)
+    return cnted_image
+
+
+def cube_contour(img):
+    edged = img_edged(img.copy())
+    img_gray, contours, _ = cv2.findContours(edged.copy(), cv2.RETR_TREE,
+                                             cv2.CHAIN_APPROX_SIMPLE)
+    c = max(contours, key=cv2.contourArea)
+    hull = cv2.convexHull(c)
+    return hull
 
 
 def img_edged(img):
@@ -45,7 +54,6 @@ def img_edged(img):
     edges = cv2.adaptiveThreshold(imblue, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
                                   cv2.THRESH_BINARY, 11, 2)
     edges = 255 - edges
-    # print(len(edges), len(edges[0]))
     return edges
 
 
@@ -218,9 +226,6 @@ def createGradient(img, vps, st):
 def img_gradient(img, vps, mean_p):
     grad_img = img.copy()
     grad_img = createGradient(grad_img, vps, mean_p)
-
-    # plt.imshow(grad_img, cmap='gray')
-    # plt.show()
     return grad_img
 
 
@@ -248,12 +253,8 @@ if __name__ == "__main__":
     combs = combinations(range(len(lines)), 2)
     for comb in combs:
         verify_and_delete(comb[0], comb[1], d_lines)
-        # print(lines[comb[0]])
-        pass
 
     lines = [val for val in d_lines.values()]
-    # print(len(lines))
-    # pretty_show(img, lines)
 
     # ================================
 
@@ -261,9 +262,12 @@ if __name__ == "__main__":
     mean_p = mean_point(lines)
 
     img_grad = img_gradient(img, vps, mean_p)
-    img_grad = scipy.ndimage.rotate(img_grad, 90)
+
+    cntr = cube_contour(img)
+    cntred_img = cut_contour(img_grad.copy(), cntr)
+
     pretty_show(origin_img, img_edged(img), img_with_lines(img, lines_orig),
-                img_with_lines(img, lines), img_grad)
+                img_with_lines(img, lines), cntred_img)
 
     print("clear vps", vps)
     print("mean_p", mean_p)
