@@ -191,35 +191,36 @@ def img_with_lines(img, lines):
 
 
 def createGradient(img, vps, st):
-    def depth_pixel(vp1, vp2, vp3, st, pix):
-        np_vp1 = np.array(vp1)
-        np_vp2 = np.array(vp2)
-        np_vp3 = np.array(vp3)
-        np_st = np.array(st)
+    def depth_pixel(pix):
         np_pix = np.array(pix)
 
-        l12 = [vp1[0], vp1[1], vp2[0], vp2[1]]
-        l23 = [vp2[0], vp2[1], vp3[0], vp3[1]]
-        l31 = [vp3[0], vp3[1], vp1[0], vp1[1]]
         dist1 = dist_to_line(l12, pix)
         dist2 = dist_to_line(l23, pix)
         dist3 = dist_to_line(l31, pix)
-        # ~ if norm(np_pix - np_vp3) < dist1 or norm(
-        # ~ np_pix - np_vp2) < dist3 or norm(
-        # ~ np_pix - np_vp1) < dist2:
-        # ~ return 0
 
-        dist = dist1 / dist_to_line(l12, st)
-        dist = min(dist, dist2 / dist_to_line(l23, st))
-        dist = min(dist, dist3 / dist_to_line(l31, st))
-        dost = dist - 1
+        dist = dist1 / dist_1st
+        dist = min(dist, dist2 / dist_2st)
+        dist = min(dist, dist3 / dist_3st)
         return int(max(min(round(dist * 255), 255), 0))
 
-    grad = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    for i in range(len(grad)):
-        for j in range(len(grad[i])):
-            pix = [512 - i, 512 - j]
-            grad[i][j] = depth_pixel(vps[0], vps[1], vps[2], st, pix)
+    vp1 = vps[0]
+    vp2 = vps[1]
+    vp3 = vps[2]
+    np_vp1 = np.array(vp1)
+    np_vp2 = np.array(vp2)
+    np_vp3 = np.array(vp3)
+    np_st = np.array(st)
+
+    l12 = [vp1[0], vp1[1], vp2[0], vp2[1]]
+    l23 = [vp2[0], vp2[1], vp3[0], vp3[1]]
+    l31 = [vp3[0], vp3[1], vp1[0], vp1[1]]
+
+    dist_1st = dist_to_line(l12, st)
+    dist_2st = dist_to_line(l23, st)
+    dist_3st = dist_to_line(l31, st)
+
+    grad = [[depth_pixel([j+1, i+1]) for j in range(len(img[0]))] for i in range(len(img))]
+    grad = np.array(grad)
     return grad
 
 
@@ -245,7 +246,7 @@ def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad):
 
 
 if __name__ == "__main__":
-    origin_img = cv2.imread("cu.jpg")
+    origin_img = cv2.imread("cube.png")
     img = cut_cube(origin_img)
     lines = get_lines(img)
     lines_orig = deepcopy(lines)
