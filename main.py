@@ -3,13 +3,12 @@ from copy import deepcopy
 from itertools import combinations
 
 import cv2
-import numpy as np
+
 from matplotlib import pyplot as plt
-from numpy.linalg import norm
+
+from mid_point import *
 
 close_points_dist = 30
-
-
 
 
 def dist(p1, p2):
@@ -71,6 +70,7 @@ def union_x(l1, l2):
         return [l1[0], l1[1], l2[2], l2[3]]
     return l1
 
+
 def union_y(l1, l2):
     if l1[3] < l1[1]:
         return union_y([l1[2], l1[3], l1[0], l1[1]], l2)
@@ -81,6 +81,7 @@ def union_y(l1, l2):
     if l1[3] < l2[3]:
         return [l1[0], l1[1], l2[2], l2[3]]
     return l1
+
 
 def union(l1, l2):
     lx = union_x(l1, l2)
@@ -101,7 +102,9 @@ def cut_cube(img):
     # plt.show()
     img_contours = img.copy()
 
-    return img_contours[y - 10:(y + h + 10), x - 10:(x + w + 10)]
+    return y - 10, y + h + 10, x - 10, x + w + 10, img_contours[
+                                                   y - 10:(y + h + 10),
+                                                   x - 10:(x + w + 10)]
 
 
 def cut_contour(img, counter):
@@ -153,26 +156,6 @@ def dist_to_line(l, p):
     l2 = np.array([l[2], l[3]])
     d = norm(np.cross(l2 - l1, l1 - p)) / norm(l2 - l1)
     return d
-
-
-def intersection(l1, l2):
-    def line(p1, p2):
-        A = (p1[1] - p2[1])
-        B = (p2[0] - p1[0])
-        C = (p1[0] * p2[1] - p2[0] * p1[1])
-        return A, B, -C
-
-    l1 = line([l1[0], l1[1]], [l1[2], l1[3]])
-    l2 = line([l2[0], l2[1]], [l2[2], l2[3]])
-    D = l1[0] * l2[1] - l1[1] * l2[0]
-    Dx = l1[2] * l2[1] - l1[1] * l2[2]
-    Dy = l1[0] * l2[2] - l1[2] * l2[0]
-    if D != 0:
-        x = Dx / D
-        y = Dy / D
-        return x, y
-    else:
-        return False
 
 
 def get_lines(img):
@@ -259,7 +242,7 @@ def vanish_points(lines):
     return vps
 
 
-def mean_point(lines):
+def mean_point(lines, vps):
     acc_x = 0
     acc_y = 0
     counter = 0
@@ -320,15 +303,15 @@ def img_gradient(img, vps, mean_p):
 
 
 def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad):
-    plt.subplot(231), plt.imshow(img, cmap='gray')
+    plt.subplot(121), plt.imshow(img, cmap='gray')
     plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-    plt.subplot(232), plt.imshow(img_edged, cmap='gray')
-    plt.title('Edged'), plt.xticks([]), plt.yticks([])
-    plt.subplot(233), plt.imshow(img_durty_lines, cmap='gray')
-    plt.title('Durty lines'), plt.xticks([]), plt.yticks([])
-    plt.subplot(234), plt.imshow(img_lines, cmap='gray')
-    plt.title('Clear lines'), plt.xticks([]), plt.yticks([])
-    plt.subplot(235), plt.imshow(img_grad, cmap='gray')
+    # plt.subplot(232), plt.imshow(img_edged, cmap='gray')
+    # plt.title('Edged'), plt.xticks([]), plt.yticks([])
+    # plt.subplot(233), plt.imshow(img_durty_lines, cmap='gray')
+    # plt.title('Durty lines'), plt.xticks([]), plt.yticks([])
+    # plt.subplot(234), plt.imshow(img_lines, cmap='gray')
+    # plt.title('Clear lines'), plt.xticks([]), plt.yticks([])
+    plt.subplot(122), plt.imshow(img_grad, cmap='gray')
     plt.title('Gradient'), plt.xticks([]), plt.yticks([])
 
     plt.show()
@@ -336,9 +319,9 @@ def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad):
 
 if __name__ == "__main__":
 
-    origin_img = cv2.imread("c.jpg")
+    origin_img = cv2.imread("./images/c.jpg")
 
-    img = cut_cube(origin_img)
+    x_base, x_last, y_base, y_last, img = cut_cube(origin_img)
     lines = get_lines(img)
     lines_orig = deepcopy(lines)
     d_lines = {i: line for i, line in enumerate(lines)}
@@ -352,16 +335,23 @@ if __name__ == "__main__":
     # ================================
 
     vps = vanish_points(lines)
-    mean_p = mean_point(lines)
-
-    img_grad = img #img_gradient(img, vps, mean_p)
-
+    # mean_p = mean_point(lines, vps)
+    mean_p = midp(lines)
+    img_grad = img_gradient(img, vps, mean_p)
+    # img_grad = img
     cntr = cube_contour(img)
     cntr = max_contour(img)
     cntred_img = cut_contour(img_grad.copy(), cntr)
+    back_ground = origin_img.copy()
+    len_a = len(back_ground)
+    for i in range(x_base, x_last, 1):
+        for j in range(y_base, y_last, 1):
+            if cntred_img[i - x_base][j - y_base] > 5:
+                tmp = cntred_img[i-x_base][j-y_last]
+                back_ground[i][j] = tmp, tmp, tmp
     # cntred_img = img
     pretty_show(origin_img, img_edged(img), img_with_lines(img, lines_orig),
-                img_with_lines(img, lines), cntred_img)
+                img_with_lines(img, lines), back_ground)
 
-    #~ print("clear vps", vps)
+    # ~ print("clear vps", vps)
     print("mean_p", mean_p)
