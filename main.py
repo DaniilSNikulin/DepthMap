@@ -1,9 +1,8 @@
-import math
+import getopt
 from copy import deepcopy
-from itertools import combinations
 
 import cv2
-
+import sys
 from matplotlib import pyplot as plt
 
 from mid_point import *
@@ -59,48 +58,60 @@ def max_contour(img):
     return hull
 
 
-def union_x(l1, l2):
-    if l1[2] < l1[0]:
-        return union_x([l1[2], l1[3], l1[0], l1[1]], l2)
-    if l2[2] < l2[0]:
-        return union_x(l1, [l2[2], l2[3], l2[0], l2[1]])
-    if l2[0] < l1[0]:
-        return union_x(l2, l1)
-    if l1[2] < l2[2]:
-        return [l1[0], l1[1], l2[2], l2[3]]
-    return l1
+def ordered_merged_contours(img):
+    edged = img_edged(img.copy())
+
+    img_gray, contours, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST,
+                                             cv2.CHAIN_APPROX_SIMPLE)
+
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    contours = contours[:10]
+    for i, cnt in enumerate(contours):
+        epsilon = 0.01 * cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, epsilon, True)
+        contours[i] = approx
+
+    # print(len(contours))
+    for i in range(len(contours) - 1, -1, -1):
+        # print("\ni", i)
+        for j in range(i + 1, len(contours)):
+            # print(j, end="")
+            if contours[j] is None:
+                continue
+            if contours_are_close(contours[i], contours[j]):
+                contours[i] = np.concatenate((contours[i], contours[j]))
+                contours[j] = None
+    # print()
+
+    # print(len(contours), len(contours_new))
+
+    # print(len(contours))
+
+    contours = list(filter(lambda x: x is not None, contours))
+    # print(len(contours))
+    contours = [cv2.convexHull(cnt) for cnt in contours]
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    # for i in range(len(contours)):
+    #     img_cpy = img.copy()
+    #     cv2.drawContours(img_cpy, contours, i, (0, 255, 0), 3)
+    #     plt.subplot(111), plt.imshow(img_cpy)
+    #     plt.show()
+
+    return contours
 
 
-def union_y(l1, l2):
-    if l1[3] < l1[1]:
-        return union_y([l1[2], l1[3], l1[0], l1[1]], l2)
-    if l2[3] < l2[1]:
-        return union_y(l1, [l2[2], l2[3], l2[0], l2[1]])
-    if l2[1] < l1[1]:
-        return union_y(l2, l1)
-    if l1[3] < l2[3]:
-        return [l1[0], l1[1], l2[2], l2[3]]
-    return l1
-
-
-def union(l1, l2):
-    lx = union_x(l1, l2)
-    ly = union_y(l1, l2)
-    vx = np.array([lx[2] - lx[0], lx[3] - lx[1]])
-    vy = np.array([ly[2] - ly[0], ly[3] - ly[1]])
-    if norm(vx) < norm(vy):
-        return ly
-    return lx
-
-
-def cut_cube(img):
-    m_counter = max_contour(img)
-    x, y, w, h = cv2.boundingRect(m_counter)
-
-    # cv2.drawContours(img, contours, -1, (0, 255, 0), 3)
-    # plt.imshow(img)
-    # plt.show()
+def get_cubes(img):
+    contours = ordered_merged_contours(img)
+    # for cnt in contours:
+    # m_counter = max_contour(img)
+    # x, y, w, h = cv2.boundingRect(cnt)
+    x, y, w, h = cv2.boundingRect(contours[0])
     img_contours = img.copy()
+
+    # cube = Cube(y - 10, y + h + 10, x - 10, x + w + 10, img_contours[
+    #                                                     y - 10:(y + h + 10),
+    #                                                     x - 10:(x + w + 10)])
 
     return y - 10, y + h + 10, x - 10, x + w + 10, img_contours[
                                                    y - 10:(y + h + 10),
@@ -142,6 +153,7 @@ def img_edged(img):
     edges = cv2.adaptiveThreshold(imblue, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
                                   cv2.THRESH_BINARY, 11, 2)
     edges = 255 - edges
+    # edges = cv2.dilate(edges,None)
     return edges
 
 
@@ -164,13 +176,110 @@ def get_lines(img):
     # ================
     edged = img_edged(img)
 
-    minLineLength = 100
+    minLineLength = 60
     maxLineGap = 10
-    lines = cv2.HoughLinesP(edged.copy(), 1, np.pi / 180, 100,
-                            minLineLength,
-                            maxLineGap)
+    lines = cv2.HoughLinesP(edged.copy(), 1, np.pi / 180, threshold=50,
+                            minLineLength=minLineLength,
+                            maxLineGap=maxLineGap)
+    lines = list(map(lambda line: line[0], lines))
+    lines_orig = deepcopy(lines)
 
-    return list(map(lambda line: line[0], lines))
+    d_lines = {i: line for i, line in enumerate(lines)}
+    combs = combinations(range(len(lines)), 2)
+    for comb in combs:
+        verify_and_delete(comb[0], comb[1], d_lines)
+
+    lines = [val for val in d_lines.values()]
+
+    lines = sorted(lines, key=(lambda line: dist([line[0], line[1]],
+                                                 [line[2], line[3]])),
+                   reverse=True)
+
+    return lines_orig, lines[:9]
+
+
+def union_x(l1, l2):
+    if l1[2] < l1[0]:
+        return union_x([l1[2], l1[3], l1[0], l1[1]], l2)
+    if l2[2] < l2[0]:
+        return union_x(l1, [l2[2], l2[3], l2[0], l2[1]])
+    if l2[0] < l1[0]:
+        return union_x(l2, l1)
+    if l1[2] < l2[2]:
+        return [l1[0], l1[1], l2[2], l2[3]]
+    return l1
+
+
+def union_y(l1, l2):
+    if l1[3] < l1[1]:
+        return union_y([l1[2], l1[3], l1[0], l1[1]], l2)
+    if l2[3] < l2[1]:
+        return union_y(l1, [l2[2], l2[3], l2[0], l2[1]])
+    if l2[1] < l1[1]:
+        return union_y(l2, l1)
+    if l1[3] < l2[3]:
+        return [l1[0], l1[1], l2[2], l2[3]]
+    return l1
+
+
+def union(l1, l2):
+    lx = union_x(l1, l2)
+    ly = union_y(l1, l2)
+    vx = np.array([lx[2] - lx[0], lx[3] - lx[1]])
+    vy = np.array([ly[2] - ly[0], ly[3] - ly[1]])
+    if norm(vx) < norm(vy):
+        return ly
+    return lx
+
+
+def create_floor_grad(img, vps):
+    def choice_vp(vps):
+        new_vps = deepcopy(vps)
+        max_y = -float("inf")
+        max_y_ind = 0
+        for i in range(3):
+            if max_y < new_vps[i][1]:
+                max_y = new_vps[i][1]
+                max_y_ind = i
+        del new_vps[max_y_ind]
+        return new_vps
+
+    def floor_base_value(grad):
+        amount_acc = 5
+        count_acc = 1
+        acc = 0
+        y_max = 1
+        x_max = 1
+        for y_i in range(len(grad) - 1, 0, -1):
+            if 0 < grad[y_i].max():
+                x_max = grad[y_i].argmax()
+                y_max = y_i
+                print(grad[y_i].max())
+                acc += grad[y_i].max()
+                count_acc += 1
+            if count_acc > amount_acc:
+                break
+        acc = (acc / amount_acc)
+        y_max = y_max + amount_acc
+        print(acc, x_max, y_max)
+        return x_max, y_max, acc
+
+    floor = deepcopy(img)
+    vps = choice_vp(vps)
+    y_base = (vps[0][1] + vps[1][1]) / 2
+
+    length_y = len(floor)
+    length_x = len(floor[0])
+    x_max, y_max, base_value = floor_base_value(floor)
+    for y_i in range(length_y):
+        for x_i in range(length_x):
+            if y_i < y_base:
+                floor[y_i][x_i] = 0
+            else:
+                y = y_i - y_base
+                length = y_max - y_base
+                floor[y_i][x_i] = int(min((math.sqrt(float(y*y) / float(length*length))*base_value ), 255))
+    return floor
 
 
 def verify_and_delete(i1, i2, d_lines):
@@ -302,56 +411,89 @@ def img_gradient(img, vps, mean_p):
     return grad_img
 
 
-def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad):
-    plt.subplot(121), plt.imshow(img, cmap='gray')
+def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad,
+                img_background):
+    plt.subplot(231), plt.imshow(img, cmap='gray')
     plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-    # plt.subplot(232), plt.imshow(img_edged, cmap='gray')
-    # plt.title('Edged'), plt.xticks([]), plt.yticks([])
-    # plt.subplot(233), plt.imshow(img_durty_lines, cmap='gray')
-    # plt.title('Durty lines'), plt.xticks([]), plt.yticks([])
-    # plt.subplot(234), plt.imshow(img_lines, cmap='gray')
-    # plt.title('Clear lines'), plt.xticks([]), plt.yticks([])
-    plt.subplot(122), plt.imshow(img_grad, cmap='gray')
+    plt.subplot(232), plt.imshow(img_edged, cmap='gray')
+    plt.title('Edged'), plt.xticks([]), plt.yticks([])
+    plt.subplot(233), plt.imshow(img_durty_lines, cmap='gray')
+    plt.title('Durty lines'), plt.xticks([]), plt.yticks([])
+    plt.subplot(234), plt.imshow(img_lines, cmap='gray')
+    plt.title('Clear lines'), plt.xticks([]), plt.yticks([])
+    plt.subplot(235), plt.imshow(img_grad, cmap='gray')
     plt.title('Gradient'), plt.xticks([]), plt.yticks([])
+    plt.subplot(236), plt.imshow(img_background, cmap='gray')
+    plt.title('Backgroung'), plt.xticks([]), plt.yticks([])
 
     plt.show()
 
 
 if __name__ == "__main__":
 
-    origin_img = cv2.imread("./images/c.jpg")
+    # **************************************888
+    argv = sys.argv[1:]
+    inputfile = ''
+    outputfile = ''
+    try:
+        opts, args = getopt.getopt(argv,"hi:o:",["ifile=","ofile="])
+    except getopt.GetoptError:
+        print('main.py -i <inputfile> -o <outputfile>')
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print('main.py -i <inputfile> -o <outputfile>')
+            sys.exit()
+        elif opt in ("-i", "--ifile"):
+            inputfile = arg
+        elif opt in ("-o", "--ofile"):
+            outputfile = arg
+    if inputfile == '':
+        print('Error: you need usage "main.py -i <inputfile> -o <outputfile>"')
+        exit(0)
+    # ********************************************8
 
-    x_base, x_last, y_base, y_last, img = cut_cube(origin_img)
-    lines = get_lines(img)
-    lines_orig = deepcopy(lines)
-    d_lines = {i: line for i, line in enumerate(lines)}
-    combs = combinations(range(len(lines)), 2)
-    for comb in combs:
-        verify_and_delete(comb[0], comb[1], d_lines)
+    origin_img = cv2.imread(inputfile)
+    n_cubes = 5
 
-    lines = [val for val in d_lines.values()]
-    print(len(d_lines))
+    x_base, x_last, y_base, y_last, img = get_cubes(origin_img)
+    lines_orig, lines = get_lines(img)
+    print(len(lines))
 
     # ================================
 
     vps = vanish_points(lines)
     # mean_p = mean_point(lines, vps)
     mean_p = midp(lines)
+    # cntr = cv2.convexHull(cntr)
+    # print(len(cntr))
     img_grad = img_gradient(img, vps, mean_p)
-    # img_grad = img
-    cntr = cube_contour(img)
+    # img_grad = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
     cntr = max_contour(img)
     cntred_img = cut_contour(img_grad.copy(), cntr)
-    back_ground = origin_img.copy()
-    len_a = len(back_ground)
+    # img_background = origin_img.copy()
+    # len_a = len(img_background)
+
+    mask = np.ones(origin_img.shape[:2], dtype="uint8") * 0
     for i in range(x_base, x_last, 1):
         for j in range(y_base, y_last, 1):
-            if cntred_img[i - x_base][j - y_base] > 5:
-                tmp = cntred_img[i-x_base][j-y_last]
-                back_ground[i][j] = tmp, tmp, tmp
+            if cntred_img[i - x_base][j - y_base] > 0:
+                tmp = cntred_img[i - x_base][j - y_last]
+                mask[i][j] = tmp
+
+    img_backgrnd = create_floor_grad(mask, vps)
+
+    for i in range(x_base, x_last, 1):
+        for j in range(y_base, y_last, 1):
+            if cntred_img[i - x_base][j - y_base] > 0:
+                tmp = cntred_img[i - x_base][j - y_last]
+                img_backgrnd[i][j] = max(tmp - 80, 0)
+
     # cntred_img = img
+    # img_backgrnd = 255 - img_backgrnd
     pretty_show(origin_img, img_edged(img), img_with_lines(img, lines_orig),
-                img_with_lines(img, lines), back_ground)
+                img_with_lines(img, lines), cntred_img, img_backgrnd)
 
     # ~ print("clear vps", vps)
     print("mean_p", mean_p)
