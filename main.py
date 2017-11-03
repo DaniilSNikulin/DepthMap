@@ -278,7 +278,8 @@ def create_floor_grad(img, vps):
             else:
                 y = y_i - y_base
                 length = y_max - y_base
-                floor[y_i][x_i] = int(min((math.sqrt(float(y*y) / float(length*length))*base_value ), 255))
+                floor[y_i][x_i] = int(min((math.sqrt(
+                    float(y * y) / float(length * length)) * base_value), 255))
     return floor
 
 
@@ -432,28 +433,28 @@ def pretty_show(img, img_edged, img_durty_lines, img_lines, img_grad,
 if __name__ == "__main__":
 
     # **************************************888
-    argv = sys.argv[1:]
-    inputfile = ''
-    outputfile = ''
-    try:
-        opts, args = getopt.getopt(argv,"hi:o:",["ifile=","ofile="])
-    except getopt.GetoptError:
-        print('main.py -i <inputfile> -o <outputfile>')
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            print('main.py -i <inputfile> -o <outputfile>')
-            sys.exit()
-        elif opt in ("-i", "--ifile"):
-            inputfile = arg
-        elif opt in ("-o", "--ofile"):
-            outputfile = arg
-    if inputfile == '':
-        print('Error: you need usage "main.py -i <inputfile> -o <outputfile>"')
-        exit(0)
+    # argv = sys.argv[1:]
+    # inputfile = ''
+    # outputfile = ''
+    # try:
+    #     opts, args = getopt.getopt(argv,"hi:o:",["ifile=","ofile="])
+    # except getopt.GetoptError:
+    #     print('main.py -i <inputfile> -o <outputfile>')
+    #     sys.exit(2)
+    # for opt, arg in opts:
+    #     if opt == '-h':
+    #         print('main.py -i <inputfile> -o <outputfile>')
+    #         sys.exit()
+    #     elif opt in ("-i", "--ifile"):
+    #         inputfile = arg
+    #     elif opt in ("-o", "--ofile"):
+    #         outputfile = arg
+    # if inputfile == '':
+    #     print('Error: you need usage "main.py -i <inputfile> -o <outputfile>"')
+    #     exit(0)
     # ********************************************8
 
-    origin_img = cv2.imread(inputfile)
+    origin_img = cv2.imread("./images/c.jpg")
     n_cubes = 5
 
     x_base, x_last, y_base, y_last, img = get_cubes(origin_img)
@@ -488,10 +489,13 @@ if __name__ == "__main__":
         for j in range(y_base, y_last, 1):
             if cntred_img[i - x_base][j - y_base] > 0:
                 tmp = cntred_img[i - x_base][j - y_last]
-                img_backgrnd[i][j] = max(tmp - 80, 0)
+                img_backgrnd[i][j] = tmp
 
-    # cntred_img = img
-    # img_backgrnd = 255 - img_backgrnd
+
+    # for i, line in enumerate(img_backgrnd):
+    #     for j in range(len(line)):
+    #         img_backgrnd[i][j] = max(img_backgrnd[i][j] - 80, 0)
+
     pretty_show(origin_img, img_edged(img), img_with_lines(img, lines_orig),
                 img_with_lines(img, lines), cntred_img, img_backgrnd)
 
