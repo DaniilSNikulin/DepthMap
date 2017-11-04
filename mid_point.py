@@ -1,9 +1,11 @@
 import math
 from numpy.linalg import norm
 import numpy as np
-from  itertools import combinations
- # midp(lines) возвращает midpoint
-def dist(p1, p2):  #Убрать, если есть
+from itertools import combinations
+# midp(lines) возвращает midpoint
+
+
+def dist(p1, p2):
     return math.sqrt(
         (p1[0] - p2[0]) * (p1[0] - p2[0]) + (p1[1] - p2[1]) * (p1[1] - p2[1]))
 #################################################
@@ -28,7 +30,9 @@ def intersection(l1, l2):
     else:
         return False
 
-def cross_pp(p1, p2, p3, p4):  ## пересечение
+
+# пересечение
+def cross_pp(p1, p2, p3, p4):
     if p1[0] == p2[0]:
         x = p1[0]
         y = ((x - p4[0])/(p3[0] - p4[0]))*(p3[1]-p4[1]) + p4[1]
@@ -39,9 +43,9 @@ def cross_pp(p1, p2, p3, p4):  ## пересечение
         c1 = (p1[1] - p2[1])/(p1[0] - p2[0])
         c2 = (p3[1] - p4[1])/(p3[0] - p4[0])
         x = (p3[1] - p1[1] + p1[0]*c1 - p3[0]*c2)/(c1-c2)
-    # x = (c1*c2*(p4[1] - p1[1]) + p1[0]*c2 - p4[0]*c1)/(c2-c1)
         y = p1[1] + c1*(x-p1[0])
     return [x, y]
+
 
 def bothcheck(l1, l2, l3):  # проверка что есть два ребра внутри угла от vp
     a2 = check_edgeinside(l1[0], [l1[1][0], l1[1][1]],
@@ -58,11 +62,10 @@ def bothcheck(l1, l2, l3):  # проверка что есть два ребра
         return False
 
 
-
-
-
-def cub(l1, l2):  ##Вернуть 4 точки куба [p1, p2, p3, p4]
-    a1 = cross_pp([l1[2][0], l1[2][1]], [l1[2][2], l1[2][3]], [l2[2][0], l2[2][1]], [l2[2][2], l2[2][3]])
+# Вернуть 4 точки куба [p1, p2, p3, p4]
+def cub(l1, l2):
+    a1 = cross_pp([l1[2][0], l1[2][1]], [l1[2][2], l1[2][3]],
+                  [l2[2][0], l2[2][1]], [l2[2][2], l2[2][3]])
     a2 = cross_pp([l1[2][0], l1[2][1]], [l1[2][2], l1[2][3]],
                   [l2[1][0], l2[1][1]], [l2[1][2], l2[1][3]])
     a3 = cross_pp([l1[1][0], l1[1][1]], [l1[1][2], l1[1][3]],
@@ -74,8 +77,6 @@ def cub(l1, l2):  ##Вернуть 4 точки куба [p1, p2, p3, p4]
 
 def magic_func(l1, l2, l3, lines):
     cvadr = cub(l1, l2)
-    #print(l3[0])
-    #print(l3[1], l3[2])
     min1 = dist([l3[1][2], l3[1][3]], cvadr[0])
     k = 0
     for i in range(1, 4):
@@ -91,7 +92,6 @@ def magic_func(l1, l2, l3, lines):
             min2 = m
             q = i
     pts = []
-    #print(cvadr[k], cvadr[q])
     for i in range(4):
         if i != k and i != q:
             pts.append(i)
@@ -109,20 +109,16 @@ def magic_func(l1, l2, l3, lines):
     else:
         l = pts[1]
         z = pts[0]
-    #print(cvadr[q], cvadr[k])
-    #print(cvadr[0], cvadr[1], cvadr[2], cvadr[3])
     if in_dif_part(cvadr[l], cvadr[q], cvadr[k], cvadr[z]):
         start = k
         return cvadr[start]
-    else:  #if in_dif_part(cvadr[l], cvadr[k], cvadr[q], cvadr[z]):
+    else:
         start = q
         return cvadr[start]
 
 
 def magic_func_for_pp6(l1, l2, l3, lines):
     cvadr = cub(l1, l2)
-    #print(l3[0])
-    #print(l3[1], l3[2])
     min1 = dist([l3[1][2], l3[1][3]], cvadr[0])
     k = 0
     for i in range(1, 4):
@@ -138,7 +134,6 @@ def magic_func_for_pp6(l1, l2, l3, lines):
             min2 = m
             q = i
     pts = []
-    #print(cvadr[k], cvadr[q])
     for i in range(4):
         if i != k and i != q:
             pts.append(i)
@@ -152,7 +147,6 @@ def magic_func_for_pp6(l1, l2, l3, lines):
             if dist(cvadr[pts[1]], [lines[i][2*j], lines[i][2*j+1]]) < min2:
                 min2 = dist(cvadr[pts[1]], [lines[i][2*j], lines[i][2*j+1]])
                 p2 = i
-    #print(lines[0], lines[1], lines[2])
     if min1 < min2:
         l = pts[0]
         z = pts[1]
@@ -161,12 +155,6 @@ def magic_func_for_pp6(l1, l2, l3, lines):
         l = pts[1]
         z = pts[0]
         rp = p2
-    #del lines[rp]
-    #print(l2[1], l2[2])
-    #print(l3[1], l3[2])
-    #print(lines)
-    #print(cvadr[q], cvadr[k])
-    #print(cvadr[0], cvadr[1], cvadr[2], cvadr[3])
     if in_dif_part(cvadr[l], cvadr[q], cvadr[k], cvadr[z]):
         #start = k
         ind = edges_from_st(k)
@@ -174,13 +162,13 @@ def magic_func_for_pp6(l1, l2, l3, lines):
         #pp3 = pts.append(q)
         return [cvadr[k], pp3]
 
-
-    else:  #if in_dif_part(cvadr[l], cvadr[k], cvadr[q], cvadr[z]):
-        #start = q
-        #pp3 = pts.append(k)
+    else:  # if in_dif_part(cvadr[l], cvadr[k], cvadr[q], cvadr[z]):
+        # start = q
+        # pp3 = pts.append(k)
         ind = edges_from_st(q)
         pp3 = [l1[ind[0]], l2[ind[1]], l3[2]]
         return [cvadr[q], pp3]
+
 
 def edges_from_st(i):
     if i == 0:
@@ -268,12 +256,12 @@ def signdef(l1, l2, l3):
         a[1] = 1
     return a
 
+
 def check_bot_edge_inside(s, p, q, l, a):
     a1 = distor(s, p, [l[0], l[1]])
     a2 = distor(s, p, [l[2], l[3]])
     b1 = distor(s, q, [l[0], l[1]])
     b2 = distor(s, q, [l[2], l[3]])
-   # print(a1, a2, b1, b2, a)
     if a1 < 0 and a2 < 0 and a[0] == 0:
         k1 = True
     if a1 > 0 and a2 > 0 and a[0] == 1:
@@ -299,38 +287,35 @@ def botombothcheck(l1, l2, l3):
                           [l1[2][0], l1[2][1]], l3[1], a)
     b3 = check_bot_edge_inside(l1[0], [l1[1][0], l1[1][1]],
                           [l1[2][0], l1[2][1]], l3[2], a)
-    #print(a2, b2, a3, b3)
     if (a2 and b2) or (a3 and b3):
         return True
     else:
         return False
 
 
-def midpoint(l1, l2, l3, lines):    ## нахождение центральной точки
+# нахождение центральной точки
+def midpoint(l1, l2, l3, lines):
     c1 = bothcheck(l1, l2, l3)
     c2 = bothcheck(l2, l1, l3)
-
     c3 = botombothcheck(l3, l1, l2)
-    #print(c1, c2, c3)
     if c1 and c2:
         start = magic_func(l1, l2, l3, lines)
-        #ps = magic_func_for_pp6(l1, l2, l3, lines)
+        # ps = magic_func_for_pp6(l1, l2, l3, lines)
         return start #[start, ps]
     elif c1 and c3:
         start = magic_func(l1, l3, l2, lines)
-        #ps = magic_func_for_pp6(l1, l3, l2, lines)
+        # ps = magic_func_for_pp6(l1, l3, l2, lines)
         return start #[start, ps]
     elif c2 and c3:
         start = magic_func(l2, l3, l1, lines)
-        #ps = magic_func_for_pp6(l2, l3, l1, lines)
+        # ps = magic_func_for_pp6(l2, l3, l1, lines)
         return start #[start, ps]
     else:
         return krestik(l1, l2)
 
 
-
-
-def in_dif_part(p1, p2, p3, p4):  ## Определения положения  p3, p4 относительно лайн p1, p2
+# Определения положения  p3, p4 относительно лайн p1, p2
+def in_dif_part(p1, p2, p3, p4):
     if p2[1] - p1[1] == 0:
         return (p3[1] - p2[1])*(p2[1] - p4[1]) > 0
     if p2[0] - p1[0] == 0:
@@ -343,9 +328,8 @@ def in_dif_part(p1, p2, p3, p4):  ## Определения положения  
         return a*b < 0
 
 
-
-
-def cos(v1, v2):  ## cosinus
+# cos
+def cos(v1, v2):  #
     return (v1[0]*v2[0] + v1[1]*v2[1])/(dist(v1,[0,0])*dist(v2,[0,0])) #np.dot(v1, v2) / (norm(v1) * norm(v2))
 
 
@@ -357,6 +341,8 @@ def distor(v, p, t):
     else:
         return (t[1]-v[1])/(p[1]-v[1]) - (t[0]-v[0])/(p[0]-v[0])
 
+
+# True если обе точки ребра внутри ребра l
 def check_edgeinside(vp, p1, p2, l):
     count = 0
     for i in range(2):
@@ -369,8 +355,7 @@ def check_edgeinside(vp, p1, p2, l):
         return False
 
 
-
-def check_edgeinside_res(vp, p1, p2, l): ## True если обе точки ребра внутри ребра l
+def check_edgeinside_res(vp, p1, p2, l):
     v1 = [p1[0] - vp[0], p1[1] - vp[1]]
     v2 = [p2[0] - vp[0], p2[1] - vp[1]]
     v3 = [l[0] - vp[0], l[1] - vp[1]]
@@ -393,7 +378,9 @@ def check_edgeinside_res(vp, p1, p2, l): ## True если обе точки ре
     else:
         return False
 
-def check_inside(p, vp1, vp2, vp3): # проверка, что p внутри vp1, vp2, vp3
+
+# проверка, что p внутри vp1, vp2, vp3
+def check_inside(p, vp1, vp2, vp3):
     if vp1[1] == vp2[1]:
         a = p[1] < vp1[1]
     else:
@@ -405,11 +392,13 @@ def check_inside(p, vp1, vp2, vp3): # проверка, что p внутри vp
                     (p[0] - vp3[0])/(vp2[0] - vp3[0]) > 0
     return a and b and c
 
+
 def eq(l1, l2):
     if l1[0] == l2[0] and l1[1] == l2[1] and l1[2] == l2[2] and l1[3] == l2[3]:
         return True
     else:
         return False
+
 
 def lines_zip(r):
     l = r[1]
@@ -447,7 +436,7 @@ def reroute(v1, v2, v3):
 def midp(lines):
     vpssh = vanish_points1(lines)
     vps = [vpssh[0][0], vpssh[1][0], vpssh[2][0]]
-    #print(vps)
+    # print(vps)
     linesss = []
     for k in range(len(lines)):
         vvv = False
@@ -459,7 +448,7 @@ def midp(lines):
             linesss.append(lines[k])
 
     ind = reroute(vps[0], vps[1], vps[2])
-    #print(vps[ind[0]], vps[ind[1]], vps[ind[2]])
+    # print(vps[ind[0]], vps[ind[1]], vps[ind[2]])
     mean_p = midpoint(lines_zip(vpssh[ind[0]]), lines_zip(vpssh[ind[1]]),
                       lines_zip(vpssh[ind[2]]), linesss)
     # if len(mean_p[0]) > 1:
