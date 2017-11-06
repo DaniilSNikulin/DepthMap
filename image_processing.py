@@ -124,5 +124,6 @@ def create_floor_grad(cubes, length_y, length_x, vps):
                         cube.img_grad_cntred[i - cube.x_base][j - cube.y_last]) - diff
                     img_backgrnd[i][j] = float(max(tmp, 0))
     img_backgrnd = img_backgrnd / img_backgrnd.max() * 255
-    img_backgrnd = img_backgrnd.astype(int)
+    img_backgrnd = img_backgrnd.astype(np.uint8)
+    img_backgrnd = cv2.medianBlur(img_backgrnd, 9)
     return img_backgrnd
